@@ -11,6 +11,9 @@ export class User {
   @Column({ unique: false, nullable: false })
   password: string;
 
+  @Column({nullable: true})
+  refreshToken: string;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 }

@@ -21,6 +21,5 @@ export class CreateDeviceDto {
     @IsNotEmpty()
     SIMInfo: string;
 
-    @IsString()
     notes: string;
 }
