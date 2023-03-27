@@ -20,7 +20,6 @@ export class DevicesController {
     return this.devicesService.findAll();
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':IMEINumber')
   findOne(@Param('IMEINumber') IMEINumber: string) {
     return this.devicesService.findOne(IMEINumber);
