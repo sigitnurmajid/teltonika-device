@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { User } from './users/entities/users.entitiy';
+import { DataDeviceModule } from './data-device/data-device.module';
 
 @Module({
   imports: [DevicesModule,
@@ -23,7 +24,8 @@ import { User } from './users/entities/users.entitiy';
       synchronize: true
     }),
     AuthModule,
-    UsersModule],
+    UsersModule,
+    DataDeviceModule],
   controllers: [AppController],
   providers: [AppService],
 })
