@@ -47,7 +47,7 @@ export class DataDeviceService {
         longitude : r.longitude,
         latitude : r.latitude,
         angle : r.angle,
-        satellites : r.satelites,
+        satellites : r.satellites,
         speed : r.speed,
         priority: r.priority,
         eventTriggered: r.event,
