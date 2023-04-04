@@ -6,7 +6,17 @@ export class DataDeviceController {
     constructor(private readonly dataDeviceService: DataDeviceService) { }
 
     @Get('history')
-    getHistory(@Query() params : any) {
+    getHistory(@Query() params: any) {
         return this.dataDeviceService.getHistory(params)
+    }
+
+    @Get('last')
+    getLast(@Query() params: any) {
+        return this.dataDeviceService.getLast(params)
+    }
+
+    @Get('tcp')
+    getTcpStatus(@Query() params: any){
+        return this.dataDeviceService.getTcpStatus(params)
     }
 }
