@@ -138,7 +138,28 @@ export class DataDeviceService {
     return response
   }
 
-  async getTcpStatus(params: any) {
+  async getTcpStatus() {
+    const fluxQuery = `
+    from(bucket: "teltonika")
+      |> range(start: 0)
+      |> filter(fn: (r) => r["_measurement"] == "TCPStatus")
+      |> last()
+      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> drop(columns: ["_start","_stop"])
+    `
+    const returnInflux = await this.influx.readPoints(fluxQuery)
 
+    returnInflux.forEach((item: any, index, object) => {
+      if (item.hasOwnProperty('imei') === false) {
+        object.splice(index, 1)
+      }
+    })
+
+    returnInflux.forEach((data: any) => {
+      delete data.result
+      delete data.table
+    })
+
+    return returnInflux
   }
 }

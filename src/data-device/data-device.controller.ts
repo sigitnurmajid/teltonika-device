@@ -16,7 +16,7 @@ export class DataDeviceController {
     }
 
     @Get('tcp')
-    getTcpStatus(@Query() params: any){
-        return this.dataDeviceService.getTcpStatus(params)
+    getTcpStatus(){
+        return this.dataDeviceService.getTcpStatus()
     }
 }
