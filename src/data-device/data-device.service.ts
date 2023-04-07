@@ -139,10 +139,31 @@ export class DataDeviceService {
   }
 
   async getTcpStatus() {
+    const re = /\b\d{15}\b/
+
+    const fluxQuery = `
+    from(bucket: "teltonika")
+    |> range(start: 0)
+    |> filter(fn: (r) => r["_measurement"] == "TCPStatus" and r["imei"] =~ ${re} )
+    |> last()
+    |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> drop(columns: ["_start","_stop"])
+    `
+    const returnInflux = await this.influx.readPoints(fluxQuery)
+
+    returnInflux.forEach((data: any) => {
+      delete data.result
+      delete data.table
+    })
+
+    return returnInflux
+  }
+
+  async findOneTcpStatus(IMEINumber: string) {
     const fluxQuery = `
     from(bucket: "teltonika")
       |> range(start: 0)
-      |> filter(fn: (r) => r["_measurement"] == "TCPStatus")
+      |> filter(fn: (r) => r["_measurement"] == "TCPStatus" and r["imei"] == "${IMEINumber}")
       |> last()
       |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
       |> drop(columns: ["_start","_stop"])
@@ -160,6 +181,6 @@ export class DataDeviceService {
       delete data.table
     })
 
-    return returnInflux
+    return returnInflux[0]
   }
 }
