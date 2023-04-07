@@ -1,8 +1,9 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query, UseGuards } from '@nestjs/common';
 import { DataDeviceService } from './data-device.service';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Device } from 'src/devices/entities/device.entity';
+import { BasicAuthGuard } from '../auth/guards/basicAuth.guard';
 
 @Controller('data-device')
 export class DataDeviceController {
@@ -12,21 +13,25 @@ export class DataDeviceController {
   ) { }
 
   @Get('history')
+  @UseGuards(BasicAuthGuard)
   getHistory(@Query() params: any) {
     return this.dataDeviceService.getHistory(params)
   }
 
   @Get('last')
+  @UseGuards(BasicAuthGuard)
   getLast(@Query() params: any) {
     return this.dataDeviceService.getLast(params)
   }
 
   @Get('tcp')
+  @UseGuards(BasicAuthGuard)
   getTcpStatus() {
     return this.dataDeviceService.getTcpStatus()
   }
 
   @Get('tcp/:IMEINumber')
+  @UseGuards(BasicAuthGuard)
   async findOneTcpStatus(@Param('IMEINumber') IMEINumber: string) {
     const device = await this.devicesRepository.findOneBy({ IMEINumber });
     if (!device) throw new NotFoundException('Device not found');
