@@ -29,12 +29,6 @@ export class DataDeviceService {
     }
 
     let fluxQuery = `
-    import "math"
-    import "bitwise"
-    
-    maskingBit = ${parseInt(maskingBit)}
-    maskingBitValue = math.log2(x: float(v: maskingBit + 1)) 
-
     from(bucket: "teltonika")
       |> range(start: ${startTime}, stop: ${endTime})
       |> filter(fn: (r) => r["_measurement"] == "${imei}")
@@ -51,30 +45,19 @@ export class DataDeviceService {
         speed : r.speed,
         priority: r.priority,
         eventTriggered: r.event,
-        storedTime : r.storedTime,
-        decodedData : bitwise.srshift(a: r.ioValue, b: int(v: maskingBitValue)),
-        dataId:  if ${enableDecode} == true then bitwise.sand(a: r.ioValue, b: maskingBit) else r.ioValue }))
+        storedTime : r.storedTime }))
       `
-    if (enableDecode) {
-      fluxQuery = fluxQuery.concat(`|> filter(fn: (r) => r["dataId"] == ${dataId})
-      |> drop(columns: ["dataId"])`)
-    } else {
-      fluxQuery = fluxQuery.concat(`|> drop(columns: ["dataId" , "decodedData"])`)
-    }
-
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
-    returnInflux.forEach((data: any) => {
-      delete data.result
-      delete data.table
-    })
+    const dataAfterDecode = this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId)
 
-    response['dataCount'] = returnInflux.length
-    response['data'] = returnInflux
+    response['dataCount'] = dataAfterDecode.length
+    response['data'] = dataAfterDecode
     return response
   }
 
   async getLast(params: any) {
+    return 'Maaf API belum support'
     const imei = params.imei
     const avlId = params.avlId
     const enableDecode = params.enableDecode === "true" ? true : false
@@ -92,12 +75,6 @@ export class DataDeviceService {
     }
 
     let fluxQuery = `
-    import "math"
-    import "bitwise"
-    
-    maskingBit = ${parseInt(maskingBit)}
-    maskingBitValue = math.log2(x: float(v: maskingBit + 1)) 
-
     from(bucket: "teltonika")
       |> range(start: 0)
       |> filter(fn: (r) => r["_measurement"] == "${imei}")
@@ -115,26 +92,15 @@ export class DataDeviceService {
         speed : r.speed,
         priority: r.priority,
         eventTriggered: r.event,
-        storedTime : r.storedTime,
-        decodedData : bitwise.srshift(a: r.ioValue, b: int(v: maskingBitValue)),
-        dataId:  if ${enableDecode} == true then bitwise.sand(a: r.ioValue, b: maskingBit) else r.ioValue }))
+        storedTime : r.storedTime }))
       `
-    if (enableDecode) {
-      fluxQuery = fluxQuery.concat(`|> filter(fn: (r) => r["dataId"] == ${dataId})
-      |> drop(columns: ["dataId"])`)
-    } else {
-      fluxQuery = fluxQuery.concat(`|> drop(columns: ["dataId" , "decodedData"])`)
-    }
 
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
-    returnInflux.forEach((data: any) => {
-      delete data.result
-      delete data.table
-    })
+    const dataAfterDecode = this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId)
 
-    response['dataCount'] = returnInflux.length
-    response['data'] = returnInflux
+    response['dataCount'] = dataAfterDecode.length
+    response['data'] = dataAfterDecode
     return response
   }
 
@@ -182,5 +148,23 @@ export class DataDeviceService {
     })
 
     return returnInflux[0]
+  }
+
+  decode(dataFromInflux: Array<any>, maskingBit: number, isDecode: boolean, dataId: string) {
+    const bitCount = Math.log2(maskingBit + 1)
+    const dataDecode = dataFromInflux.filter(x => {
+      delete x.result
+      delete x.table
+      if (!isDecode) return x
+
+      x.dataId = (BigInt(x.AVLValue) & BigInt(maskingBit)).toString()
+      x.decodedData = (BigInt(x.AVLValue) >> BigInt(bitCount)).toString()
+      return x
+    })
+    if (!isDecode) return dataDecode
+    const dataFilter = dataDecode.filter(x => {
+      return x.dataId === dataId
+    })
+    return dataFilter
   }
 }
