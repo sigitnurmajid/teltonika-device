@@ -7,105 +7,101 @@ export class DataDeviceService {
     private influx: InfluxProvider
   ) { }
 
-  async getHistory(params: any) {
+  async getLast(params: any) {
+    // const imei = params.imei
+    // const avlId = params.avlId
+    // const enableDecode = params.enableDecode === "true" ? true : false
+    // const dataId = params.dataId
+    // const maskingBit = params.maskingBit
+
+    // const response = {
+    //   APItype: 'realtime data',
+    //   queryTime: new Date(),
+    //   imei: imei,
+    //   AVLId: avlId,
+    //   decode: enableDecode,
+    //   maskingBit: (enableDecode) ? maskingBit : '-',
+    //   dataId: (enableDecode) ? dataId : '-'
+    // }
+
+    // let dataAfterDecode: Array<any> = []
+
+    // for (let index = 1; index < 18; index++) {
+    //   const time = Math.round(1.1 ** (index * 10))
+
+    //   const fluxQuery = `
+    //   from(bucket: "teltonika")
+    //     |> range(start: -${time}s )
+    //     |> filter(fn: (r) => r["_measurement"] == "${imei}")
+    //     |> filter(fn: (r) => r["ioID"] == "${avlId}")
+    //     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    //     |> map(fn: (r) => ({
+    //       AVLValue : r.ioValue,
+    //       AVLTimestamp : r._time,
+    //       altitude: r.altitude,
+    //       longitude : r.longitude,
+    //       latitude : r.latitude,
+    //       angle : r.angle,
+    //       satellites : r.satellites,
+    //       speed : r.speed,
+    //       priority: r.priority,
+    //       eventTriggered: r.event,
+    //       storedTime : r.storedTime }))
+    //   `
+    //   const returnInflux = await this.influx.readPoints(fluxQuery)
+    //   dataAfterDecode = this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId)
+    //   if (dataAfterDecode.length > 0) break
+    // }
+    // if (dataAfterDecode.length === 0) throw new NotFoundException('Realtime data not found')
+
+    // response['dataCount'] = 1
+    // response['data'] = dataAfterDecode[dataAfterDecode.length - 1]
+    // return response
+
     const imei = params.imei
-    const startTime = params.startTime
-    const endTime = params.endTime
-    const avlId = params.avlId
     const enableDecode = params.enableDecode === "true" ? true : false
-    const dataId = params.dataId
     const maskingBit = params.maskingBit
 
-    const response = {
-      APItype: 'historical data',
-      startTime: startTime,
-      endTime: endTime,
-      queryTime: new Date(),
-      imei: imei,
-      AVLId: avlId,
-      decode: enableDecode,
-      maskingBit: (enableDecode) ? maskingBit : '-',
-      dataId: (enableDecode) ? dataId : '-'
-    }
+    const avlQuery = params.avl.map((x: any) => {
+      return Object.entries(x).map(([avlId]) => {
+        return ` r["ioID"] == "${avlId}" `
+      })
+    }).join('or')
 
     const fluxQuery = `
     from(bucket: "teltonika")
-      |> range(start: ${startTime}, stop: ${endTime})
-      |> filter(fn: (r) => r["_measurement"] == "${imei}")
-      |> filter(fn: (r) => r["ioID"] == "${avlId}")
-      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-      |> map(fn: (r) => ({
-        AVLValue : r.ioValue,
-        AVLTimestamp : r._time,
-        altitude : r.altitude,
-        longitude : r.longitude,
-        latitude : r.latitude,
-        angle : r.angle,
-        satellites : r.satellites,
-        speed : r.speed,
-        priority: r.priority,
-        eventTriggered: r.event,
-        storedTime : r.storedTime }))
-      `
+    |> range(start: -14d)
+    |> filter(fn: (r) => r["_measurement"] == "${imei}" and (${avlQuery}))
+    |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> map(fn: (r) => ({
+      AVLValue : r.ioValue,
+      AVLId : r.ioID,
+      AVLTimestamp : r._time,
+      altitude : r.altitude,
+      longitude : r.longitude,
+      latitude : r.latitude,
+      angle : r.angle,
+      satellites : r.satellites,
+      speed : r.speed,
+      priority: r.priority,
+      eventTriggered: r.event,
+      storedTime : r.storedTime }))
+    `
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
-    const dataAfterDecode = this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId)
-    if (dataAfterDecode.length === 0) throw new NotFoundException('History data not found')
-    response['dataCount'] = dataAfterDecode.length
-    response['data'] = dataAfterDecode
-    return response
-  }
+    const dataAVL = params.avl.map((x: any) => {
+      return Object.entries(x).map(([avlId, dataId]) => {
+        return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId, true)
+      })
+    })
 
-  async getLast(params: any) {
-    const imei = params.imei
-    const avlId = params.avlId
-    const enableDecode = params.enableDecode === "true" ? true : false
-    const dataId = params.dataId
-    const maskingBit = params.maskingBit
-
-    const response = {
+    return {
       APItype: 'realtime data',
       queryTime: new Date(),
       imei: imei,
-      AVLId: avlId,
-      decode: enableDecode,
-      maskingBit: (enableDecode) ? maskingBit : '-',
-      dataId: (enableDecode) ? dataId : '-'
+      AVLIdCount: dataAVL.length,
+      AVLData: dataAVL
     }
-
-    let dataAfterDecode: Array<any> = []
-
-    for (let index = 1; index < 18; index++) {
-      const time = Math.round(1.1 ** (index * 10))
-
-      const fluxQuery = `
-      from(bucket: "teltonika")
-        |> range(start: -${time}s )
-        |> filter(fn: (r) => r["_measurement"] == "${imei}")
-        |> filter(fn: (r) => r["ioID"] == "${avlId}")
-        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-        |> map(fn: (r) => ({
-          AVLValue : r.ioValue,
-          AVLTimestamp : r._time,
-          altitude: r.altitude,
-          longitude : r.longitude,
-          latitude : r.latitude,
-          angle : r.angle,
-          satellites : r.satellites,
-          speed : r.speed,
-          priority: r.priority,
-          eventTriggered: r.event,
-          storedTime : r.storedTime }))
-      `
-      const returnInflux = await this.influx.readPoints(fluxQuery)
-      dataAfterDecode = this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId)
-      if (dataAfterDecode.length > 0) break
-    }
-    if (dataAfterDecode.length === 0) throw new NotFoundException('Realtime data not found')
-
-    response['dataCount'] = 1
-    response['data'] = dataAfterDecode[dataAfterDecode.length - 1]
-    return response
   }
 
   async getTcpStatus() {
@@ -154,9 +150,62 @@ export class DataDeviceService {
     return returnInflux[0]
   }
 
-  decode(dataFromInflux: Array<any>, maskingBit: number, isDecode: boolean, dataId: string) {
+  async getHistory(params: any) {
+    const imei = params.imei
+    const startTime = params.startTime
+    const endTime = params.endTime
+    const enableDecode = params.enableDecode === "true" ? true : false
+    const maskingBit = params.maskingBit
+
+    const avlQuery = params.avl.map((x: any) => {
+      return Object.entries(x).map(([avlId]) => {
+        return ` r["ioID"] == "${avlId}" `
+      })
+    }).join('or')
+
+    const fluxQuery = `
+    from(bucket: "teltonika")
+    |> range(start: ${startTime}, stop: ${endTime})
+    |> filter(fn: (r) => r["_measurement"] == "${imei}" and (${avlQuery}))
+    |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> map(fn: (r) => ({
+      AVLValue : r.ioValue,
+      AVLId : r.ioID,
+      AVLTimestamp : r._time,
+      altitude : r.altitude,
+      longitude : r.longitude,
+      latitude : r.latitude,
+      angle : r.angle,
+      satellites : r.satellites,
+      speed : r.speed,
+      priority: r.priority,
+      eventTriggered: r.event,
+      storedTime : r.storedTime }))
+    `
+    const returnInflux = await this.influx.readPoints(fluxQuery)
+
+    const dataAVL = params.avl.map((x: any) => {
+      return Object.entries(x).map(([avlId, dataId]) => {
+        return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId)
+      })
+    })
+
+    return {
+      APItype: 'historical data',
+      startTime: startTime,
+      endTime: endTime,
+      queryTime: new Date(),
+      imei: imei,
+      AVLIdCount: dataAVL.length,
+      AVLData: dataAVL
+    }
+  }
+
+  decode(dataFromInflux: Array<any>, maskingBit: number, isDecode: boolean, dataId: string, AVLId: string, isLast?: boolean) {
+    let dataResult: Array<any>
+
     const bitCount = Math.log2(maskingBit + 1)
-    const dataDecode = dataFromInflux.filter(x => {
+    const dataDecode = dataFromInflux.map(x => {
       delete x.result
       delete x.table
       if (!isDecode) return x
@@ -164,11 +213,23 @@ export class DataDeviceService {
       x.dataId = (BigInt(x.AVLValue) & BigInt(maskingBit)).toString()
       x.decodedData = (BigInt(x.AVLValue) >> BigInt(bitCount)).toString()
       return x
-    })
-    if (!isDecode) return dataDecode
-    const dataFilter = dataDecode.filter(x => {
-      return x.dataId === dataId
-    })
-    return dataFilter
+    }).filter(x => x.AVLId === AVLId)
+
+    if (!isDecode) {
+      dataResult = dataDecode
+    } else {
+      dataResult = dataDecode.filter(x => {
+        return x.dataId === dataId
+      })
+    }
+
+    return {
+      AVLId: AVLId,
+      decode: isDecode,
+      maskingBit: (isDecode) ? maskingBit : '-',
+      dataId: (isDecode) ? dataId : '-',
+      dataCount: (isLast === true && dataResult.length !== 0) ? 1 : dataResult.length,
+      data: (!isLast) ? dataResult : dataResult[dataResult.length - 1]
+    }
   }
 }
