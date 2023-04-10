@@ -9,26 +9,28 @@ export class DataDeviceService {
 
   async getLast(params: any) {
     const imei = params.imei
-    const enableDecode = params.enableDecode === "true" ? true : false
-    const maskingBit = params.maskingBit
 
     const avlQuery = params.avl.map((x: any) => {
-      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId]) => {
-        return ` r["ioID"] == "${avlId}" `
+      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([AVLId, dataId]) => {
+        return `(r["AVLId"] == "${AVLId}" and r["dataId"] == "${dataId}")`
       })
-    }).join('or')
+    }).join(' or ')
 
     const fluxQuery = `
     from(bucket: "teltonika")
     |> range(start: -14d)
-    |> filter(fn: (r) => r["_measurement"] == "${imei}" and (${avlQuery}))
+    |> filter(fn: (r) => r["_measurement"] == "${imei}")
+    |> filter(fn: (r) => ${avlQuery})
+    |> group(columns: ["AVLId", "dataId"])
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> last(column: "AVLValue")
     `
+
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
     const dataAVL = params.avl.map((x: any) => {
-       return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId, dataId]) => {
-        return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId, true)
+      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId, dataId]) => {
+        return this.decode(returnInflux, dataId.toString(), avlId)
       })[0]
     })
 
@@ -91,26 +93,26 @@ export class DataDeviceService {
     const imei = params.imei
     const startTime = params.startTime
     const endTime = params.endTime
-    const enableDecode = params.enableDecode === "true" ? true : false
-    const maskingBit = params.maskingBit
 
     const avlQuery = params.avl.map((x: any) => {
-      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId]) => {
-        return ` r["ioID"] == "${avlId}" `
+      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([AVLId, dataId]) => {
+        return `(r["AVLId"] == "${AVLId}" and r["dataId"] == "${dataId}")`
       })
-    }).join('or')
+    }).join(' or ')
 
     const fluxQuery = `
     from(bucket: "teltonika")
     |> range(start: ${startTime}, stop: ${endTime})
-    |> filter(fn: (r) => r["_measurement"] == "${imei}" and (${avlQuery}))
+    |> filter(fn: (r) => r["_measurement"] == "${imei}")
+    |> filter(fn: (r) => ${avlQuery})
+    |> group(columns: ["AVLId", "dataId"])
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
     `
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
     const dataAVL = params.avl.map((x: any) => {
       return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId, dataId]) => {
-        return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId)
+        return this.decode(returnInflux, dataId.toString(), avlId)
       })[0]
     })
 
@@ -125,39 +127,21 @@ export class DataDeviceService {
     }
   }
 
-  decode(dataFromInflux: Array<any>, maskingBit: number, isDecode: boolean, dataId: string, AVLId: string, isLast?: boolean) {
-    let dataResult: Array<any>
-
-    const bitCount = Math.log2(maskingBit + 1)
+  decode(dataFromInflux: Array<any>, dataId: string, AVLId: string) {
     const dataDecode = dataFromInflux.map(x => {
       delete x.result
       delete x.table
       delete x._measurement
       delete x._start
       delete x._stop
-
-      if (!isDecode) return x
-
-      x.dataId = (BigInt(x.AVLValue) & BigInt(maskingBit)).toString()
-      x.decodedData = (BigInt(x.AVLValue) >> BigInt(bitCount)).toString()
       return x
-    }).filter(x => x.ioID === AVLId)
-
-    if (!isDecode) {
-      dataResult = dataDecode
-    } else {
-      dataResult = dataDecode.filter(x => {
-        return x.dataId === dataId
-      })
-    }
+    }).filter(x => (x.AVLId == AVLId) && (x.dataId == dataId))
 
     return {
       AVLId: AVLId,
-      decode: isDecode,
-      maskingBit: (isDecode) ? maskingBit : '-',
-      dataId: (isDecode) ? dataId : '-',
-      dataCount: (isLast === true && dataResult.length !== 0) ? 1 : dataResult.length,
-      data: (!isLast) ? dataResult : dataResult[dataResult.length - 1]
+      dataId: dataId,
+      dataCount: dataDecode.length,
+      data: dataDecode
     }
   }
 }
