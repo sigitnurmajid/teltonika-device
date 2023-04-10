@@ -25,7 +25,7 @@ export class DataDeviceService {
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
     `
     const returnInflux = await this.influx.readPoints(fluxQuery)
-    console.log(fluxQuery)
+
     const dataAVL = params.avl.map((x: any) => {
        return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId, dataId]) => {
         return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId, true)
