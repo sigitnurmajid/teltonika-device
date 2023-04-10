@@ -8,62 +8,12 @@ export class DataDeviceService {
   ) { }
 
   async getLast(params: any) {
-    // const imei = params.imei
-    // const avlId = params.avlId
-    // const enableDecode = params.enableDecode === "true" ? true : false
-    // const dataId = params.dataId
-    // const maskingBit = params.maskingBit
-
-    // const response = {
-    //   APItype: 'realtime data',
-    //   queryTime: new Date(),
-    //   imei: imei,
-    //   AVLId: avlId,
-    //   decode: enableDecode,
-    //   maskingBit: (enableDecode) ? maskingBit : '-',
-    //   dataId: (enableDecode) ? dataId : '-'
-    // }
-
-    // let dataAfterDecode: Array<any> = []
-
-    // for (let index = 1; index < 18; index++) {
-    //   const time = Math.round(1.1 ** (index * 10))
-
-    //   const fluxQuery = `
-    //   from(bucket: "teltonika")
-    //     |> range(start: -${time}s )
-    //     |> filter(fn: (r) => r["_measurement"] == "${imei}")
-    //     |> filter(fn: (r) => r["ioID"] == "${avlId}")
-    //     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-    //     |> map(fn: (r) => ({
-    //       AVLValue : r.ioValue,
-    //       AVLTimestamp : r._time,
-    //       altitude: r.altitude,
-    //       longitude : r.longitude,
-    //       latitude : r.latitude,
-    //       angle : r.angle,
-    //       satellites : r.satellites,
-    //       speed : r.speed,
-    //       priority: r.priority,
-    //       eventTriggered: r.event,
-    //       storedTime : r.storedTime }))
-    //   `
-    //   const returnInflux = await this.influx.readPoints(fluxQuery)
-    //   dataAfterDecode = this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId)
-    //   if (dataAfterDecode.length > 0) break
-    // }
-    // if (dataAfterDecode.length === 0) throw new NotFoundException('Realtime data not found')
-
-    // response['dataCount'] = 1
-    // response['data'] = dataAfterDecode[dataAfterDecode.length - 1]
-    // return response
-
     const imei = params.imei
     const enableDecode = params.enableDecode === "true" ? true : false
     const maskingBit = params.maskingBit
 
     const avlQuery = params.avl.map((x: any) => {
-      return Object.entries(x).map(([avlId]) => {
+      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId]) => {
         return ` r["ioID"] == "${avlId}" `
       })
     }).join('or')
@@ -73,26 +23,13 @@ export class DataDeviceService {
     |> range(start: -14d)
     |> filter(fn: (r) => r["_measurement"] == "${imei}" and (${avlQuery}))
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-    |> map(fn: (r) => ({
-      AVLValue : r.ioValue,
-      AVLId : r.ioID,
-      AVLTimestamp : r._time,
-      altitude : r.altitude,
-      longitude : r.longitude,
-      latitude : r.latitude,
-      angle : r.angle,
-      satellites : r.satellites,
-      speed : r.speed,
-      priority: r.priority,
-      eventTriggered: r.event,
-      storedTime : r.storedTime }))
     `
     const returnInflux = await this.influx.readPoints(fluxQuery)
-
+    console.log(fluxQuery)
     const dataAVL = params.avl.map((x: any) => {
-      return Object.entries(x).map(([avlId, dataId]) => {
+       return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId, dataId]) => {
         return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId, true)
-      })
+      })[0]
     })
 
     return {
@@ -158,7 +95,7 @@ export class DataDeviceService {
     const maskingBit = params.maskingBit
 
     const avlQuery = params.avl.map((x: any) => {
-      return Object.entries(x).map(([avlId]) => {
+      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId]) => {
         return ` r["ioID"] == "${avlId}" `
       })
     }).join('or')
@@ -168,26 +105,13 @@ export class DataDeviceService {
     |> range(start: ${startTime}, stop: ${endTime})
     |> filter(fn: (r) => r["_measurement"] == "${imei}" and (${avlQuery}))
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-    |> map(fn: (r) => ({
-      AVLValue : r.ioValue,
-      AVLId : r.ioID,
-      AVLTimestamp : r._time,
-      altitude : r.altitude,
-      longitude : r.longitude,
-      latitude : r.latitude,
-      angle : r.angle,
-      satellites : r.satellites,
-      speed : r.speed,
-      priority: r.priority,
-      eventTriggered: r.event,
-      storedTime : r.storedTime }))
     `
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
     const dataAVL = params.avl.map((x: any) => {
-      return Object.entries(x).map(([avlId, dataId]) => {
+      return Object.entries((typeof (x) === 'string') ? JSON.parse(x) : x).map(([avlId, dataId]) => {
         return this.decode(returnInflux, parseInt(maskingBit), enableDecode, dataId.toString(), avlId)
-      })
+      })[0]
     })
 
     return {
@@ -208,12 +132,16 @@ export class DataDeviceService {
     const dataDecode = dataFromInflux.map(x => {
       delete x.result
       delete x.table
+      delete x._measurement
+      delete x._start
+      delete x._stop
+
       if (!isDecode) return x
 
       x.dataId = (BigInt(x.AVLValue) & BigInt(maskingBit)).toString()
       x.decodedData = (BigInt(x.AVLValue) >> BigInt(bitCount)).toString()
       return x
-    }).filter(x => x.AVLId === AVLId)
+    }).filter(x => x.ioID === AVLId)
 
     if (!isDecode) {
       dataResult = dataDecode
