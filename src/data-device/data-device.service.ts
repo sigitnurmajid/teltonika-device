@@ -155,6 +155,7 @@ export class DataDeviceService {
     |> filter(fn: (r) => r["_field"] == "latitude" or r["_field"] == "longitude" or r["_field"] == "altitude" or r["_field"] == "angle" or r["_field"] == "satellites")
     |> group()
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> filter(fn: (r) => r["satellites"] != "0")
     |> last(column: "latitude")
     `
     const returnInflux = await this.influx.readPoints(fluxQuery)
@@ -179,6 +180,7 @@ export class DataDeviceService {
     |> filter(fn: (r) => r["_field"] == "latitude" or r["_field"] == "longitude" or r["_field"] == "altitude" or r["_field"] == "angle" or r["_field"] == "satellites")
     |> group()
     |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> filter(fn: (r) => r["satellites"] != "0")
     `
     const returnInflux = await this.influx.readPoints(fluxQuery)
 
