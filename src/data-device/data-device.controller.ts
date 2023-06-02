@@ -37,4 +37,16 @@ export class DataDeviceController {
     if (!device) throw new NotFoundException('Device not found');
     return this.dataDeviceService.findOneTcpStatus(IMEINumber);
   }
+
+  @Get('geolocation/last')
+  @UseGuards(BasicAuthGuard)
+  async getLocationDataLast(@Query() params: any) {
+    return this.dataDeviceService.getLocationDataLast(params);
+  }
+
+  @Get('geolocation/history')
+  @UseGuards(BasicAuthGuard)
+  async getLocationDataHistory(@Query() params: any) {
+    return this.dataDeviceService.getLocationDataHistory(params);
+  }
 }

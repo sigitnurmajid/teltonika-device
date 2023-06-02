@@ -144,4 +144,49 @@ export class DataDeviceService {
       data: dataDecode
     }
   }
+
+  async getLocationDataLast(params: any) {
+    const imei = params.imei
+    
+    const fluxQuery = `
+    from(bucket: "teltonika")
+    |> range(start: 0)
+    |> filter(fn: (r) => r["_measurement"] == "${imei}")
+    |> filter(fn: (r) => r["_field"] == "latitude" or r["_field"] == "longitude" or r["_field"] == "altitude" or r["_field"] == "angle" or r["_field"] == "satellites")
+    |> group()
+    |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    |> last(column: "latitude")
+    `
+    const returnInflux = await this.influx.readPoints(fluxQuery)
+
+    returnInflux.forEach((data: any) => {
+      delete data.result
+      delete data.table
+    })
+
+    return returnInflux[0]
+  }
+
+  async getLocationDataHistory(params: any) {
+    const imei = params.imei
+    const startTime = params.startTime
+    const endTime = params.endTime
+
+    const fluxQuery = `
+    from(bucket: "teltonika")
+    |> range(start: ${startTime}, stop: ${endTime})
+    |> filter(fn: (r) => r["_measurement"] == "${imei}")
+    |> filter(fn: (r) => r["_field"] == "latitude" or r["_field"] == "longitude" or r["_field"] == "altitude" or r["_field"] == "angle" or r["_field"] == "satellites")
+    |> group()
+    |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    `
+    const returnInflux = await this.influx.readPoints(fluxQuery)
+
+    returnInflux.forEach((data: any) => {
+      delete data.result
+      delete data.table
+    })
+
+    return returnInflux
+  }
 }
