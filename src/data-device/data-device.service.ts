@@ -17,7 +17,7 @@ export class DataDeviceService {
     }).join(' or ')
 
     const fluxQuery = `
-    from(bucket: "teltonika")
+    from(bucket: "vms")
     |> range(start: -14d)
     |> filter(fn: (r) => r["_measurement"] == "${imei}")
     |> filter(fn: (r) => ${avlQuery})
@@ -47,7 +47,7 @@ export class DataDeviceService {
     const re = /\b\d{15}\b/
 
     const fluxQuery = `
-    from(bucket: "teltonika")
+    from(bucket: "vms")
     |> range(start: 0)
     |> filter(fn: (r) => r["_measurement"] == "TCPStatus" and r["imei"] =~ ${re} )
     |> last()
@@ -66,7 +66,7 @@ export class DataDeviceService {
 
   async findOneTcpStatus(IMEINumber: string) {
     const fluxQuery = `
-    from(bucket: "teltonika")
+    from(bucket: "vms")
       |> range(start: 0)
       |> filter(fn: (r) => r["_measurement"] == "TCPStatus" and r["imei"] == "${IMEINumber}")
       |> last()
@@ -101,7 +101,7 @@ export class DataDeviceService {
     }).join(' or ')
 
     const fluxQuery = `
-    from(bucket: "teltonika")
+    from(bucket: "vms")
     |> range(start: ${startTime}, stop: ${endTime})
     |> filter(fn: (r) => r["_measurement"] == "${imei}")
     |> filter(fn: (r) => ${avlQuery})
@@ -149,7 +149,7 @@ export class DataDeviceService {
     const imei = params.imei
     
     const fluxQuery = `
-    from(bucket: "teltonika")
+    from(bucket: "vms")
     |> range(start: 0)
     |> filter(fn: (r) => r["_measurement"] == "${imei}")
     |> filter(fn: (r) => r["_field"] == "latitude" or r["_field"] == "longitude" or r["_field"] == "altitude" or r["_field"] == "angle" or r["_field"] == "satellites")
@@ -174,7 +174,7 @@ export class DataDeviceService {
     const endTime = params.endTime
 
     const fluxQuery = `
-    from(bucket: "teltonika")
+    from(bucket: "vms")
     |> range(start: ${startTime}, stop: ${endTime})
     |> filter(fn: (r) => r["_measurement"] == "${imei}")
     |> filter(fn: (r) => r["_field"] == "latitude" or r["_field"] == "longitude" or r["_field"] == "altitude" or r["_field"] == "angle" or r["_field"] == "satellites")
